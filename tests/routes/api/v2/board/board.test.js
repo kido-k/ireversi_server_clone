@@ -5,82 +5,61 @@ const PieceStore = require('../../../../../src/models/v2/PieceStore.js');
 const generateToken = require('../../../../../src/routes/api/v2/userIdGenerate/generateToken');
 
 const basePath = '/api/v2/board';
-const zero = 0;
+const ZERO = 0;
+const TEST_USER_NUMBER = 10;
+let testUsers = [];
 
-function userIdGenerate() {
-  const token = generateToken.generate();
-  return token;
+function setTestUser() {
+  testUsers = [...Array(TEST_USER_NUMBER)].map(() => generateToken.generate());
 }
 
-function jwtDecode(token) {
-  decoded = jwt.decode(token);
-  return decoded;
-}
+const u = n => jwt.decode(testUsers[n]).userId;
 
 function convertComparisonResult(result) {
-  const fPieces = [];
   const size = Math.sqrt(result.length);
-  for (let i = 0; i < result.length; i += 1) {
-    if (result[i] !== 0) {
-      const x = Math.floor(i % size);
-      const y = Math.floor(i / size);
-      let userId = 0;
-      if (result[i] === 'I') {
-        userId = 1;
-      } else {
-        userId = result[i];
-      }
-      const piece = {
-        x,
-        y,
-        userId,
+  return (result.map((p, idx) => {
+    if (p !== 0) {
+      return {
+        x: Math.floor(idx % size),
+        y: Math.floor(idx / size),
+        userId: p === 'I' ? 1 : p,
       };
-      fPieces.push(piece);
     }
-  }
-  return fPieces;
+    return p;
+  })).filter(p => p !== 0);
 }
 
 function convertComparisonMatchers(result, idSl) {
   // 他のテストと違って原点を中心にずらしている。
-  const fPieces = [];
   const size = Math.sqrt(result.length);
-  const half = Math.floor(size / 2);
-  for (let i = 0; i < result.length; i += 1) {
-    if (result[i] === idSl) {
-      const piece = {
-        x: Math.floor(i % size) - half,
-        y: Math.floor(i / size) - half,
+  return (result.map((p, idx) => {
+    if (p === idSl) {
+      return {
+        x: Math.floor(idx % size) - Math.floor(size / 2),
+        y: Math.floor(idx / size) - Math.floor(size / 2),
       };
-      fPieces.push(piece);
     }
-  }
-  return fPieces;
+    return p;
+  })).filter(p => p.x !== undefined);
 }
 
 describe('board', () => {
+  setTestUser(TEST_USER_NUMBER);
+
   // 一つ駒を置く
   it('gets all', async () => {
     await chai.request(app).delete(`${basePath}`);
     PieceStore.initPieces();
 
     // Given
-    const idSelectedJwt = userIdGenerate();
-    const idSl = jwtDecode(idSelectedJwt).userId;
-    const id1 = jwtDecode(userIdGenerate()).userId;
-    const id2 = jwtDecode(userIdGenerate()).userId;
-    const id3 = jwtDecode(userIdGenerate()).userId;
-    const id4 = jwtDecode(userIdGenerate()).userId;
-    const id5 = jwtDecode(userIdGenerate()).userId;
-    const id6 = jwtDecode(userIdGenerate()).userId;
 
     // "I"は初期化した時の最初のピース
     const result = [
-      'I', idSl, zero, zero, zero,
-      zero, idSl, id1, idSl, zero,
-      id2, id3, id4, id5, idSl,
-      zero, id6, zero, id1, zero,
-      zero, zero, zero, zero, zero,
+      'I', u(0), ZERO, ZERO, ZERO,
+      ZERO, u(0), u(1), u(0), ZERO,
+      u(2), u(3), u(4), u(5), u(0),
+      ZERO, u(6), ZERO, u(1), ZERO,
+      ZERO, ZERO, ZERO, ZERO, ZERO,
     ];
     const matchers = convertComparisonResult(result);
     const size = Math.sqrt(result.length);
@@ -99,7 +78,7 @@ describe('board', () => {
     // When
     const response = await chai.request(app)
       .get(`${basePath}`)
-      .set('Authorization', idSelectedJwt);
+      .set('Authorization', testUsers[0]);
 
     // Then
     expect(response.body.pieces).toHaveLength(matchers.length);
@@ -114,15 +93,12 @@ describe('board after turnover', () => {
     PieceStore.deletePieces();
 
     // Given
-
     // 2nd piece set
-    const id1Jwt = userIdGenerate();
-    const id1 = jwtDecode(id1Jwt).userId;
     const resultFol = [
-      zero, zero, zero, zero,
-      id1, zero, zero, zero,
-      zero, zero, zero, zero,
-      zero, zero, zero, zero,
+      ZERO, ZERO, ZERO, ZERO,
+      u(1), ZERO, ZERO, ZERO,
+      ZERO, ZERO, ZERO, ZERO,
+      ZERO, ZERO, ZERO, ZERO,
     ];
     // second_pieceを取り込み
     const sizeFol = Math.sqrt(resultFol.length);
@@ -136,20 +112,18 @@ describe('board after turnover', () => {
         PieceStore.addPiece(ans);
       }
     });
-    const idSelectedJwt = userIdGenerate();
-    const idSl = jwtDecode(idSelectedJwt).userId;
     const matchers = convertComparisonMatchers([
-      zero, zero, zero, zero, zero,
-      zero, zero, idSl, zero, zero,
-      zero, idSl, 'I', idSl, zero,
-      zero, idSl, id1, idSl, zero,
-      zero, zero, idSl, zero, zero,
-    ], idSl);
+      ZERO, ZERO, ZERO, ZERO, ZERO,
+      ZERO, ZERO, u(0), ZERO, ZERO,
+      ZERO, u(0), 'I', u(0), ZERO,
+      ZERO, u(0), u(1), u(0), ZERO,
+      ZERO, ZERO, u(0), ZERO, ZERO,
+    ], u(0));
 
     // When
     const response = await chai.request(app)
       .get(`${basePath}`)
-      .set('Authorization', idSelectedJwt);
+      .set('Authorization', testUsers[0]);
     // Then
     expect(response.body.candidates).toHaveLength(matchers.length);
     expect(response.body.candidates).toEqual(expect.arrayContaining(matchers));
