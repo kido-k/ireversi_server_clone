@@ -6,6 +6,7 @@ const generateToken = require('../../../../../src/routes/api/v2/userIdGenerate/g
 
 const basePath = '/api/v2/board';
 const ZERO = 0;
+const INIT = 1;
 const TEST_USER_NUMBER = 10;
 let testUsers = [];
 
@@ -15,65 +16,56 @@ function setTestUser() {
 
 const u = n => jwt.decode(testUsers[n]).userId;
 
-function convertComparisonResult(result) {
-  const size = Math.sqrt(result.length);
-  return (result.map((p, idx) => {
-    if (p !== 0) {
-      return {
-        x: Math.floor(idx % size),
-        y: Math.floor(idx / size),
-        userId: p === 'I' ? 1 : p,
-      };
-    }
-    return p;
-  })).filter(p => p !== 0);
+function array2PieceMatchers(array) {
+  const size = Math.sqrt(array.length);
+  return (array.map((p, idx) => (p !== 0 ? {
+    x: Math.floor(idx % size) - Math.floor(size / 2),
+    y: Math.floor(idx / size) - Math.floor(size / 2),
+    userId: p,
+  } : p))).filter(p => p !== 0);
 }
 
-function convertComparisonMatchers(result, idSl) {
-  // 他のテストと違って原点を中心にずらしている。
-  const size = Math.sqrt(result.length);
-  return (result.map((p, idx) => {
-    if (p === idSl) {
-      return {
+function array2CandidateMatchers(array) {
+  const size = Math.sqrt(array.length);
+  return (array.map((p, idx) => (p !== 0 ? {
+    x: Math.floor(idx % size) - Math.floor(size / 2),
+    y: Math.floor(idx / size) - Math.floor(size / 2),
+  } : p))).filter(p => p !== 0);
+}
+
+function setTesPieces(pieces, size) {
+  pieces.forEach((p, idx) => {
+    if (p !== 0) {
+      PieceStore.addPiece({
         x: Math.floor(idx % size) - Math.floor(size / 2),
         y: Math.floor(idx / size) - Math.floor(size / 2),
-      };
+        userId: p,
+      });
     }
-    return p;
-  })).filter(p => p.x !== undefined);
+  });
 }
 
-describe('board', () => {
+describe('check board pieces', () => {
+  // 利用するテストユーザーをセットする。ユーザー数はTEST_USER_NUMBERにて設定
   setTestUser(TEST_USER_NUMBER);
 
-  // 一つ駒を置く
+  // 置いた駒が全て取得できることを確認
   it('gets all', async () => {
     await chai.request(app).delete(`${basePath}`);
     PieceStore.initPieces();
 
     // Given
-
-    // "I"は初期化した時の最初のピース
-    const result = [
-      'I', u(0), ZERO, ZERO, ZERO,
-      ZERO, u(0), u(1), u(0), ZERO,
-      u(2), u(3), u(4), u(5), u(0),
-      ZERO, u(6), ZERO, u(1), ZERO,
+    const putPieces = [
+      ZERO, ZERO, ZERO, ZERO, ZERO,
+      ZERO, u(0), u(1), u(2), ZERO,
+      ZERO, u(3), INIT, u(4), ZERO,
+      ZERO, u(5), u(6), u(7), ZERO,
       ZERO, ZERO, ZERO, ZERO, ZERO,
     ];
-    const matchers = convertComparisonResult(result);
-    const size = Math.sqrt(result.length);
 
-    result.forEach((elm, index) => {
-      if (elm !== 0 && elm !== 'I') {
-        const ans = {
-          x: Math.floor(index % size),
-          y: Math.floor(index / size),
-          userId: elm,
-        };
-        PieceStore.addPiece(ans);
-      }
-    });
+    const pieceMatchers = array2PieceMatchers(putPieces);
+    const size = Math.sqrt(putPieces.length);
+    setTesPieces(putPieces, size);
 
     // When
     const response = await chai.request(app)
@@ -81,51 +73,55 @@ describe('board', () => {
       .set('Authorization', testUsers[0]);
 
     // Then
-    expect(response.body.pieces).toHaveLength(matchers.length);
-    expect(response.body.pieces).toEqual(expect.arrayContaining(matchers));
+    expect(response.body.pieces).toHaveLength(pieceMatchers.length);
+    expect(response.body.pieces).toEqual(expect.arrayContaining(pieceMatchers));
   });
 });
 
-describe('board after turnover', () => {
+describe('check board pieces and candidates', () => {
   // 一つ駒を置く
   it('gets pieces after turnover some pieces', async () => {
     await chai.request(app).delete(`${basePath}`);
     PieceStore.deletePieces();
 
     // Given
-    // 2nd piece set
-    const resultFol = [
-      ZERO, ZERO, ZERO, ZERO,
-      u(1), ZERO, ZERO, ZERO,
-      ZERO, ZERO, ZERO, ZERO,
-      ZERO, ZERO, ZERO, ZERO,
-    ];
-    // second_pieceを取り込み
-    const sizeFol = Math.sqrt(resultFol.length);
-    resultFol.forEach((elm, index) => {
-      if (elm !== 0) {
-        const ans = {
-          x: Math.floor(index % sizeFol),
-          y: Math.floor(index / sizeFol),
-          userId: elm,
-        };
-        PieceStore.addPiece(ans);
-      }
-    });
-    const matchers = convertComparisonMatchers([
+    // piece set
+    const putPieces = [
       ZERO, ZERO, ZERO, ZERO, ZERO,
+      ZERO, ZERO, ZERO, ZERO, ZERO,
+      ZERO, ZERO, INIT, ZERO, ZERO,
       ZERO, ZERO, u(0), ZERO, ZERO,
-      ZERO, u(0), 'I', u(0), ZERO,
-      ZERO, u(0), u(1), u(0), ZERO,
+      ZERO, ZERO, ZERO, ZERO, ZERO,
+    ];
+    const size = Math.sqrt(putPieces.length);
+    setTesPieces(putPieces, size);
+
+    const pieceMatchers = array2PieceMatchers([
+      ZERO, ZERO, ZERO, ZERO, ZERO,
+      ZERO, ZERO, ZERO, ZERO, ZERO,
+      ZERO, ZERO, INIT, ZERO, ZERO,
       ZERO, ZERO, u(0), ZERO, ZERO,
-    ], u(0));
+      ZERO, ZERO, ZERO, ZERO, ZERO,
+    ]);
+
+    const candidateMatchers = array2CandidateMatchers([
+      ZERO, ZERO, ZERO, ZERO, ZERO,
+      ZERO, ZERO, u(1), ZERO, ZERO,
+      ZERO, u(1), ZERO, u(1), ZERO,
+      ZERO, u(1), ZERO, u(1), ZERO,
+      ZERO, ZERO, u(1), ZERO, ZERO,
+    ]);
 
     // When
     const response = await chai.request(app)
       .get(`${basePath}`)
-      .set('Authorization', testUsers[0]);
+      .set('Authorization', testUsers[1]);
     // Then
-    expect(response.body.candidates).toHaveLength(matchers.length);
-    expect(response.body.candidates).toEqual(expect.arrayContaining(matchers));
+    // 置かれた駒のチェック
+    expect(response.body.pieces).toHaveLength(pieceMatchers.length);
+    expect(response.body.pieces).toEqual(expect.arrayContaining(pieceMatchers));
+    // セットされたtestUserに対する駒を置ける場所のチェック
+    expect(response.body.candidates).toHaveLength(candidateMatchers.length);
+    expect(response.body.candidates).toEqual(expect.arrayContaining(candidateMatchers));
   });
 });
