@@ -5,10 +5,17 @@ const PieceStore = require('../../../../../src/models/v2/PieceStore.js');
 const generateToken = require('../../../../../src/routes/api/v2/userIdGenerate/generateToken');
 
 const basePath = '/api/v2/board';
+
 const ZERO = 0;
 const INIT = 1;
 const TEST_USER_NUMBER = 10;
 let testUsers = [];
+
+const Testclass = require('../../../../../src/models/v2/test.js');
+
+const test = new Testclass('hoge', 'and', [0, 0, 1]);
+test.getName();
+// test.getPieces();
 
 function setTestUser() {
   testUsers = [...Array(TEST_USER_NUMBER)].map(() => generateToken.generate());
@@ -16,22 +23,22 @@ function setTestUser() {
 
 const u = n => jwt.decode(testUsers[n]).userId;
 
-function array2PieceMatchers(array) {
-  const size = Math.sqrt(array.length);
-  return (array.map((p, idx) => (p !== 0 ? {
-    x: Math.floor(idx % size) - Math.floor(size / 2),
-    y: Math.floor(idx / size) - Math.floor(size / 2),
-    userId: p,
-  } : p))).filter(p => p !== 0);
-}
+// function array2PieceMatchers(array) {
+//   const size = Math.sqrt(array.length);
+//   return (array.map((p, idx) => (p !== 0 ? {
+//     x: Math.floor(idx % size) - Math.floor(size / 2),
+//     y: Math.floor(idx / size) - Math.floor(size / 2),
+//     userId: p,
+//   } : p))).filter(p => p !== 0);
+// }
 
-function array2CandidateMatchers(array) {
-  const size = Math.sqrt(array.length);
-  return (array.map((p, idx) => (p !== 0 ? {
-    x: Math.floor(idx % size) - Math.floor(size / 2),
-    y: Math.floor(idx / size) - Math.floor(size / 2),
-  } : p))).filter(p => p !== 0);
-}
+// function array2CandidateMatchers(array) {
+//   const size = Math.sqrt(array.length);
+//   return (array.map((p, idx) => (p !== 0 ? {
+//     x: Math.floor(idx % size) - Math.floor(size / 2),
+//     y: Math.floor(idx / size) - Math.floor(size / 2),
+//   } : p))).filter(p => p !== 0);
+// }
 
 function setTesPieces(pieces, size) {
   pieces.forEach((p, idx) => {
@@ -63,7 +70,7 @@ describe('check board pieces', () => {
       ZERO, ZERO, ZERO, ZERO, ZERO,
     ];
 
-    const pieceMatchers = array2PieceMatchers(putPieces);
+    const pieceMatchers = test.array2PieceMatchers(putPieces);
     const size = Math.sqrt(putPieces.length);
     setTesPieces(putPieces, size);
 
@@ -96,7 +103,7 @@ describe('check board pieces and candidates', () => {
     const size = Math.sqrt(putPieces.length);
     setTesPieces(putPieces, size);
 
-    const pieceMatchers = array2PieceMatchers([
+    const pieceMatchers = test.array2PieceMatchers([
       ZERO, ZERO, ZERO, ZERO, ZERO,
       ZERO, ZERO, ZERO, ZERO, ZERO,
       ZERO, ZERO, INIT, ZERO, ZERO,
@@ -104,7 +111,7 @@ describe('check board pieces and candidates', () => {
       ZERO, ZERO, ZERO, ZERO, ZERO,
     ]);
 
-    const candidateMatchers = array2CandidateMatchers([
+    const candidateMatchers = test.array2CandidateMatchers([
       ZERO, ZERO, ZERO, ZERO, ZERO,
       ZERO, ZERO, u(1), ZERO, ZERO,
       ZERO, u(1), ZERO, u(1), ZERO,
